@@ -6,14 +6,14 @@ import (
 )
 
 func GetTestGroup(t *testing.T) Group {
-	TestEnvironmentVariablesPresent(t) // checks the env-variables and failsNow if any is missing
+	t.Helper()
 	groups, err := graphClient.ListGroups()
 	if err != nil {
-		t.Fatalf("Can not GraphClient.ListGroups(): %v", err)
+		t.Fatalf("Cannot GraphClient.ListGroups(): %v", err)
 	}
 	groupTest, err := groups.GetByDisplayName(msGraphExistingGroupDisplayName)
 	if err != nil {
-		t.Fatalf("Can not groups.GetByDisplayName(%v): %v", msGraphExistingGroupDisplayName, err)
+		t.Fatalf("Cannot groups.GetByDisplayName(%v): %v", msGraphExistingGroupDisplayName, err)
 	}
 	return groupTest
 }
@@ -78,6 +78,75 @@ func TestGroup_String(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.g.String(); got != tt.want {
 				t.Errorf("Group.String() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGroup_ListTransitiveMembers(t *testing.T) {
+	testGroup := GetTestGroup(t)
+
+	tests := []struct {
+		name    string
+		g       Group
+		wantErr bool
+	}{
+		{
+			name:    "GraphClient created Group",
+			g:       testGroup,
+			wantErr: false,
+		}, {
+			name:    "Not GraphClient created Group",
+			g:       Group{DisplayName: "Test not GraphClient sourced"},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.g.ListTransitiveMembers()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Group.ListTransitiveMembers() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && len(got) == 0 {
+				t.Errorf("Group.ListTransitiveMembers() = %v, len(%d), want at least one member of that group", got, len(got))
+			}
+		})
+	}
+}
+
+func TestGroup_GetMemberGroupsAsStrings(t *testing.T) {
+	testGroup := GetTestGroup(t)
+
+	tests := []struct {
+		name    string
+		g       Group
+		opts    []GetQueryOption
+		wantErr bool
+	}{
+		{
+			name:    "Test group func GetMembershipGroupsAsStrings",
+			g:       testGroup,
+			wantErr: false,
+		}, {
+			name:    "Test group func GetMembershipGroupsAsStrings - no securityGroupsEnabeledF",
+			g:       testGroup,
+			wantErr: false,
+		},
+		{
+			name:    "Group not initialized by GraphClient",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.g.GetMemberGroupsAsStrings(tt.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Group.GetMemberGroupsAsStrings() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && len(got) == 0 {
+				t.Errorf("Group.GetMemberGroupsAsStrings() = %v, len(%d), want at least one value", got, len(got))
 			}
 		})
 	}

@@ -41,9 +41,10 @@ func (g *Group) setGraphClient(gC *GraphClient) {
 // ListMembers - Get a list of the group's direct members. A group can have users,
 // contacts, and other groups as members. This operation is not transitive. This
 // method will currently ONLY return User-instances of members
+// Supports optional OData query parameters https://docs.microsoft.com/en-us/graph/query-parameters
 //
 // See https://developer.microsoft.com/en-us/graph/docs/api-reference/v1.0/api/group_list_members
-func (g Group) ListMembers() (Users, error) {
+func (g Group) ListMembers(opts ...ListQueryOption) (Users, error) {
 	if g.graphClient == nil {
 		return nil, ErrNotGraphClientSourced
 	}
@@ -53,7 +54,38 @@ func (g Group) ListMembers() (Users, error) {
 		Users Users `json:"value"`
 	}
 	marsh.Users.setGraphClient(g.graphClient)
-	return marsh.Users, g.graphClient.makeGETAPICall(resource, nil, &marsh)
+	return marsh.Users, g.graphClient.makeGETAPICall(resource, compileListQueryOptions(opts), &marsh)
+}
+
+// Get a list of the group's members. A group can have users, devices, organizational contacts, and other groups as members.
+// This operation is transitive and returns a flat list of all nested members.
+// This method will currently ONLY return User-instances of members
+// Supports optional OData query parameters https://docs.microsoft.com/en-us/graph/query-parameters
+//
+// See https://docs.microsoft.com/en-us/graph/api/group-list-transitivemembers?view=graph-rest-1.0&tabs=http
+func (g Group) ListTransitiveMembers(opts ...ListQueryOption) (Users, error) {
+	if g.graphClient == nil {
+		return nil, ErrNotGraphClientSourced
+	}
+	resource := fmt.Sprintf("/groups/%v/transitiveMembers", g.ID)
+
+	var marsh struct {
+		Users Users `json:"value"`
+	}
+	marsh.Users.setGraphClient(g.graphClient)
+	return marsh.Users, g.graphClient.makeGETAPICall(resource, compileListQueryOptions(opts), &marsh)
+}
+
+// GetMemberGroupsAsStrings returns a list of all group IDs the user is a member of.
+//
+// opts ...GetQueryOption - only msgraph.GetWithContext is supported.
+//
+// Reference: https://docs.microsoft.com/en-us/graph/api/directoryobject-getmembergroups?view=graph-rest-1.0&tabs=http
+func (g Group) GetMemberGroupsAsStrings(opts ...GetQueryOption) ([]string, error) {
+	if g.graphClient == nil {
+		return nil, ErrNotGraphClientSourced
+	}
+	return g.graphClient.getMemberGroups(g.ID, false, opts...) // securityEnabledOnly is not supported for Groups, see documentation / API-reference
 }
 
 // UnmarshalJSON implements the json unmarshal to be used by the json-library
@@ -85,7 +117,7 @@ func (g *Group) UnmarshalJSON(data []byte) error {
 	g.DisplayName = tmp.DisplayName
 	g.CreatedDateTime, err = time.Parse(time.RFC3339, tmp.CreatedDateTime)
 	if err != nil && tmp.CreatedDateTime != "" {
-		return fmt.Errorf("Can not parse CreatedDateTime %v with RFC3339: %v", tmp.CreatedDateTime, err)
+		return fmt.Errorf("cannot parse CreatedDateTime %v with RFC3339: %v", tmp.CreatedDateTime, err)
 	}
 	g.GroupTypes = tmp.GroupTypes
 	g.Mail = tmp.Mail
@@ -93,7 +125,7 @@ func (g *Group) UnmarshalJSON(data []byte) error {
 	g.MailNickname = tmp.MailNickname
 	g.OnPremisesLastSyncDateTime, err = time.Parse(time.RFC3339, tmp.OnPremisesLastSyncDateTime)
 	if err != nil && tmp.OnPremisesLastSyncDateTime != "" {
-		return fmt.Errorf("Can not parse OnPremisesLastSyncDateTime %v with RFC3339: %v", tmp.OnPremisesLastSyncDateTime, err)
+		return fmt.Errorf("cannot parse OnPremisesLastSyncDateTime %v with RFC3339: %v", tmp.OnPremisesLastSyncDateTime, err)
 	}
 	g.OnPremisesSecurityIdentifier = tmp.OnPremisesSecurityIdentifier
 	g.OnPremisesSyncEnabled = tmp.OnPremisesSyncEnabled

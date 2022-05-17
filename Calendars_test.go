@@ -8,20 +8,26 @@ import (
 // GetTestListCalendars tries to get a valid User from the User-test cases
 // and then uses ListCalendars() for this instance.
 func GetTestListCalendars(t *testing.T) Calendars {
+	t.Helper()
 	testUser := GetTestUser(t)
+	if skipCalendarTests {
+		t.Skip("Skipping due to missing 'MSGraphExistingCalendarsOfUser' value")
+	}
 	testCalendars, err := testUser.ListCalendars()
 	if err != nil {
-		t.Fatalf("Can not User.ListCalendars() for user %v: %v", testUser, err)
+		t.Fatalf("Cannot User.ListCalendars() for user %v: %v", testUser, err)
 	}
 	if len(testCalendars) == 0 {
-		t.Fatalf("Can not User.ListCalendars() for user %v, 0 calendars returned", testUser)
+		t.Fatalf("Cannot User.ListCalendars() for user %v, 0 calendars returned", testUser)
 	}
 	return testCalendars
 }
 
 func TestCalendars_GetByName(t *testing.T) {
 	testCalendars := GetTestListCalendars(t)
-
+	if skipCalendarTests {
+		t.Skip("Skipping due to missing 'MSGraphExistingCalendarsOfUser' value")
+	}
 	type args struct {
 		name string
 	}
@@ -34,7 +40,7 @@ func TestCalendars_GetByName(t *testing.T) {
 		{
 			name:    "Find valid Calendar",
 			c:       testCalendars,
-			args:    args{name: "Kalender"},
+			args:    args{name: msGraphExistingCalendarsOfUser[0]},
 			wantErr: false,
 		}, {
 			name:    "non-existing calendar",
@@ -55,6 +61,9 @@ func TestCalendars_GetByName(t *testing.T) {
 }
 
 func TestCalendars_String(t *testing.T) {
+	if skipCalendarTests {
+		t.Skip("Skipping due to missing 'MSGraphExistingCalendarsOfUser' value")
+	}
 	testCalendars := GetTestListCalendars(t)
 
 	// write custom string func
